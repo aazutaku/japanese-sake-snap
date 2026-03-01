@@ -13,6 +13,13 @@ import { useRouter } from "expo-router";
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/constants/theme";
 import { useApp } from "../../src/store/AppContext";
 import { SAKE_TYPE_LABELS } from "../../src/types";
+import {
+  getCollectorRank,
+  getNextRank,
+  getEarnedBadges,
+  getRegionStats,
+  getTypeStats,
+} from "../../src/constants/collection";
 
 export default function ProfileScreen() {
   const { profile, posts, shelves, updateProfile } = useApp();
@@ -25,6 +32,12 @@ export default function ProfileScreen() {
   const totalPosts = posts.length;
   const totalShelves = shelves.length;
   const publicShelves = shelves.filter((s) => s.isPublic).length;
+
+  const rank = getCollectorRank(totalPosts);
+  const nextRank = getNextRank(totalPosts);
+  const earnedBadges = getEarnedBadges(posts, totalShelves, publicShelves);
+  const regionStats = getRegionStats(posts);
+  const typeStats = getTypeStats(posts);
 
   const typeCount: Record<string, number> = {};
   posts.forEach((p) => {
@@ -120,6 +133,11 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <View style={styles.profileInfo}>
+            {/* ランクバッジ */}
+            <View style={styles.rankBadge}>
+              <Text style={styles.rankBadgeEmoji}>{rank.emoji}</Text>
+              <Text style={styles.rankBadgeText}>Lv.{rank.level} {rank.title}</Text>
+            </View>
             <Text style={styles.displayName}>{profile.displayName}</Text>
             {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
             {profile.favoriteBrewing ? (
@@ -154,6 +172,78 @@ export default function ProfileScreen() {
           <Text style={styles.statLabel}>公開中</Text>
         </View>
       </View>
+
+      {/* コレクション進捗 */}
+      <View style={styles.collectionProgress}>
+        <Text style={styles.sectionTitle}>コレクション進捗</Text>
+        <View style={styles.progressGrid}>
+          <View style={styles.progressItem}>
+            <Text style={styles.progressEmoji}>🗾</Text>
+            <Text style={styles.progressNum}>{regionStats.covered.size}/47</Text>
+            <Text style={styles.progressLabel}>都道府県</Text>
+            <View style={styles.miniProgressBar}>
+              <View style={[styles.miniProgressFill, { width: `${regionStats.percentage}%` }]} />
+            </View>
+          </View>
+          <View style={styles.progressItem}>
+            <Text style={styles.progressEmoji}>📖</Text>
+            <Text style={styles.progressNum}>{typeStats.collectedCount}/{typeStats.total}</Text>
+            <Text style={styles.progressLabel}>酒タイプ</Text>
+            <View style={styles.miniProgressBar}>
+              <View style={[styles.miniProgressFill, { width: `${typeStats.percentage}%` }]} />
+            </View>
+          </View>
+          <View style={styles.progressItem}>
+            <Text style={styles.progressEmoji}>🏅</Text>
+            <Text style={styles.progressNum}>{earnedBadges.length}</Text>
+            <Text style={styles.progressLabel}>実績</Text>
+            <View style={styles.miniProgressBar}>
+              <View style={[styles.miniProgressFill, { width: `${Math.round((earnedBadges.length / 25) * 100)}%` }]} />
+            </View>
+          </View>
+        </View>
+        {nextRank && (
+          <View style={styles.nextRankRow}>
+            <Text style={styles.nextRankText}>
+              次のランク「{nextRank.emoji} {nextRank.title}」まであと{nextRank.minSakes - totalPosts}本
+            </Text>
+            <View style={styles.rankProgressBar}>
+              <View
+                style={[
+                  styles.rankProgressFill,
+                  {
+                    width: `${Math.min(
+                      ((totalPosts - rank.minSakes) / (nextRank.minSakes - rank.minSakes)) * 100,
+                      100
+                    )}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* バッジプレビュー */}
+      {earnedBadges.length > 0 && (
+        <View>
+          <Text style={styles.sectionTitle}>獲得バッジ</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {earnedBadges.slice(0, 8).map((badge) => (
+              <View key={badge.id} style={styles.badgePreview}>
+                <Text style={styles.badgePreviewEmoji}>{badge.emoji}</Text>
+                <Text style={styles.badgePreviewName} numberOfLines={1}>{badge.name}</Text>
+              </View>
+            ))}
+            <TouchableOpacity
+              style={styles.badgePreviewMore}
+              onPress={() => router.push("/(tabs)/collection")}
+            >
+              <Text style={styles.badgePreviewMoreText}>すべて見る →</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
 
       {/* マイ棚一覧（メインコンテンツ） */}
       <Text style={styles.sectionTitle}>マイ棚</Text>
@@ -454,5 +544,121 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.md,
     fontWeight: "600",
     color: COLORS.text,
+  },
+
+  // ランクバッジ
+  rankBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.secondary + "20",
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.full,
+    marginBottom: SPACING.sm,
+    gap: 4,
+  },
+  rankBadgeEmoji: {
+    fontSize: 16,
+  },
+  rankBadgeText: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: "700",
+    color: COLORS.primaryDark,
+  },
+
+  // コレクション進捗
+  collectionProgress: {
+    marginTop: SPACING.sm,
+  },
+  progressGrid: {
+    flexDirection: "row",
+    gap: SPACING.sm,
+  },
+  progressItem: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  progressEmoji: {
+    fontSize: 24,
+  },
+  progressNum: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: "800",
+    color: COLORS.primary,
+    marginTop: SPACING.xs,
+  },
+  progressLabel: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  miniProgressBar: {
+    width: "100%",
+    height: 4,
+    backgroundColor: COLORS.borderLight,
+    borderRadius: 2,
+    marginTop: SPACING.sm,
+    overflow: "hidden",
+  },
+  miniProgressFill: {
+    height: "100%",
+    backgroundColor: COLORS.primary,
+    borderRadius: 2,
+  },
+  nextRankRow: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  nextRankText: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+  },
+  rankProgressBar: {
+    height: 6,
+    backgroundColor: COLORS.borderLight,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  rankProgressFill: {
+    height: "100%",
+    backgroundColor: COLORS.star,
+    borderRadius: 3,
+  },
+
+  // バッジプレビュー
+  badgePreview: {
+    width: 72,
+    alignItems: "center",
+    marginRight: SPACING.sm,
+  },
+  badgePreviewEmoji: {
+    fontSize: 32,
+  },
+  badgePreviewName: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: COLORS.text,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  badgePreviewMore: {
+    justifyContent: "center",
+    paddingHorizontal: SPACING.md,
+  },
+  badgePreviewMoreText: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.primary,
+    fontWeight: "600",
   },
 });

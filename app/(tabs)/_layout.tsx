@@ -38,6 +38,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="collection"
+        options={{
+          title: "コレクション",
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>🏅</Text>,
+        }}
+      />
+      <Tabs.Screen
         name="add"
         options={{
           title: "追加",
