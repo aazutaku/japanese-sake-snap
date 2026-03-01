@@ -45,6 +45,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="stamp"
+        options={{
+          title: "スタンプ",
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>🗺️</Text>,
+        }}
+      />
+      <Tabs.Screen
         name="add"
         options={{
           title: "追加",

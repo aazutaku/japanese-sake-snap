@@ -10,8 +10,9 @@ import {
 import { useRouter } from "expo-router";
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/constants/theme";
 import { useApp } from "../../src/store/AppContext";
-import { PublicShelf } from "../../src/types";
+import { PublicShelf, Recommendation, SAKE_TYPE_LABELS } from "../../src/types";
 import { ShelfFeedCard, ShelfMiniCard } from "../../src/components/ShelfFeedCard";
+import { RatingStars } from "../../src/components/RatingStars";
 
 type FilterTag = "all" | "popular" | "new" | "beginner" | "food" | "region";
 const FILTER_TAGS: { key: FilterTag; label: string }[] = [
@@ -24,7 +25,7 @@ const FILTER_TAGS: { key: FilterTag; label: string }[] = [
 ];
 
 export default function ExploreScreen() {
-  const { publicShelves, toggleShelfLike, likedShelfIds } = useApp();
+  const { publicShelves, toggleShelfLike, likedShelfIds, recommendations } = useApp();
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<FilterTag>("all");
 
@@ -85,6 +86,45 @@ export default function ExploreScreen() {
                     shelf={shelf}
                     onPress={() => handleOpenShelf(shelf)}
                   />
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* おすすめの一本 */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>💡 おすすめの一本</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+              >
+                {recommendations.map((rec) => (
+                  <View key={rec.id} style={styles.recCard}>
+                    <View style={styles.recSceneTag}>
+                      <Text style={styles.recSceneText}>{rec.scene}</Text>
+                    </View>
+                    <Text style={styles.recSakeName} numberOfLines={1}>
+                      {rec.sake.name}
+                    </Text>
+                    <Text style={styles.recBrewery} numberOfLines={1}>
+                      {rec.sake.brewery} / {rec.sake.region}
+                    </Text>
+                    <View style={styles.recTypeRow}>
+                      <Text style={styles.recTypeBadge}>
+                        {SAKE_TYPE_LABELS[rec.sake.type]}
+                      </Text>
+                      <RatingStars rating={rec.sake.rating} size={12} />
+                    </View>
+                    <Text style={styles.recReason} numberOfLines={2}>
+                      {rec.reason}
+                    </Text>
+                    <View style={styles.recUserRow}>
+                      <Text style={styles.recUserAvatar}>👤</Text>
+                      <Text style={styles.recUserName} numberOfLines={1}>
+                        {rec.user.displayName}
+                      </Text>
+                    </View>
+                  </View>
                 ))}
               </ScrollView>
             </View>
@@ -184,5 +224,73 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: COLORS.white,
+  },
+  recCard: {
+    width: 200,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginRight: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  recSceneTag: {
+    alignSelf: "flex-start",
+    backgroundColor: COLORS.primary + "18",
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.full,
+    marginBottom: SPACING.sm,
+  },
+  recSceneText: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.primary,
+    fontWeight: "700",
+  },
+  recSakeName: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  recBrewery: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+  },
+  recTypeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  recTypeBadge: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.primary,
+    fontWeight: "600",
+    backgroundColor: COLORS.primary + "12",
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: BORDER_RADIUS.sm,
+    overflow: "hidden",
+  },
+  recReason: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    lineHeight: 16,
+    marginBottom: SPACING.sm,
+  },
+  recUserRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  recUserAvatar: {
+    fontSize: 12,
+  },
+  recUserName: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textLight,
+    flex: 1,
   },
 });

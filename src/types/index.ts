@@ -67,3 +67,13 @@ export interface PublicShelf extends Shelf {
   likes: number;
   followers: number;
 }
+
+// おすすめ投稿
+export interface Recommendation {
+  id: string;
+  user: UserProfile;
+  sake: SakePost;
+  reason: string; // なぜおすすめか
+  scene: string; // おすすめシーン (例: "デート", "一人飲み", "贈り物")
+  createdAt: string;
+}

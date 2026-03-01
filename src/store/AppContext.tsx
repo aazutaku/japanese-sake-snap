@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { SakePost, Shelf, UserProfile, PublicShelf } from "../types";
+import { SakePost, Shelf, UserProfile, PublicShelf, Recommendation } from "../types";
 import * as storage from "./storage";
 import { DEFAULT_SHELVES } from "../constants/theme";
 
@@ -19,6 +19,7 @@ interface AppState {
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   getShelfPosts: (shelfId: string) => SakePost[];
   likedShelfIds: Set<string>;
+  recommendations: Recommendation[];
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -161,6 +162,50 @@ const DEMO_PUBLIC_SHELVES: PublicShelf[] = [
   },
 ];
 
+// --- デモおすすめ ---
+const DEMO_RECOMMENDATIONS: Recommendation[] = [
+  {
+    id: "rec-1",
+    user: DEMO_USERS[1],
+    sake: { id: "rec-s-1", name: "獺祭 純米大吟醸 磨き二割三分", brewery: "旭酒造", region: "山口県", type: "junmai-daiginjo", rating: 5, comment: "華やかな吟醸香と透明感のある味わい。日本酒の最高峰", imageUri: "", shelfId: "", createdAt: "2026-02-28T12:00:00.000Z" },
+    reason: "日本酒に詳しくない人への贈り物にハズさない。知名度・味・パッケージすべてが完璧",
+    scene: "贈り物",
+    createdAt: "2026-02-28T12:00:00.000Z",
+  },
+  {
+    id: "rec-2",
+    user: DEMO_USERS[0],
+    sake: { id: "rec-s-2", name: "新政 No.6 X-type", brewery: "新政酒造", region: "秋田県", type: "junmai", rating: 5, comment: "木桶仕込みの酸味がワインのよう", imageUri: "", shelfId: "", createdAt: "2026-02-27T18:00:00.000Z" },
+    reason: "ワイン好きの友人に出したら衝撃を受けてた。日本酒の概念を壊す一本",
+    scene: "ワイン好きに",
+    createdAt: "2026-02-27T18:00:00.000Z",
+  },
+  {
+    id: "rec-3",
+    user: DEMO_USERS[2],
+    sake: { id: "rec-s-3", name: "上善如水 純米吟醸", brewery: "白瀧酒造", region: "新潟県", type: "junmai-ginjo", rating: 4, comment: "名前の通り水のようにスッと飲める", imageUri: "", shelfId: "", createdAt: "2026-02-26T20:00:00.000Z" },
+    reason: "日本酒デビューならまずこれ。クセがなくて食事の邪魔をしない万能選手",
+    scene: "はじめての日本酒",
+    createdAt: "2026-02-26T20:00:00.000Z",
+  },
+  {
+    id: "rec-4",
+    user: DEMO_USERS[3],
+    sake: { id: "rec-s-4", name: "大七 純米生酛", brewery: "大七酒造", region: "福島県", type: "junmai", rating: 5, comment: "生酛造りの奥深い味わい。ぬる燗にすると別次元", imageUri: "", shelfId: "", createdAt: "2026-02-25T19:00:00.000Z" },
+    reason: "寒い夜にぬる燗で飲んでほしい。身体の芯から温まる、冬の最高のパートナー",
+    scene: "冬の晩酌",
+    createdAt: "2026-02-25T19:00:00.000Z",
+  },
+  {
+    id: "rec-5",
+    user: DEMO_USERS[1],
+    sake: { id: "rec-s-5", name: "澪 スパークリング", brewery: "宝酒造", region: "京都府", type: "sparkling", rating: 4, comment: "甘くて飲みやすいスパークリング日本酒", imageUri: "", shelfId: "", createdAt: "2026-02-24T15:00:00.000Z" },
+    reason: "デートの乾杯にぴったり。見た目もおしゃれで女性ウケ抜群",
+    scene: "デート",
+    createdAt: "2026-02-24T15:00:00.000Z",
+  },
+];
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [shelves, setShelves] = useState<Shelf[]>([]);
   const [posts, setPosts] = useState<SakePost[]>([]);
@@ -174,6 +219,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [publicShelves, setPublicShelves] = useState<PublicShelf[]>(DEMO_PUBLIC_SHELVES);
   const [likedShelfIds, setLikedShelfIds] = useState<Set<string>>(new Set());
+  const [recommendations] = useState<Recommendation[]>(DEMO_RECOMMENDATIONS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -322,6 +368,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateProfile,
         getShelfPosts,
         likedShelfIds,
+        recommendations,
       }}
     >
       {children}
