@@ -3,117 +3,120 @@ import {
   View,
   Text,
   FlatList,
-  Image,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/constants/theme";
 import { useApp } from "../../src/store/AppContext";
-import { RatingStars } from "../../src/components/RatingStars";
-import { SAKE_TYPE_LABELS, TimelinePost } from "../../src/types";
+import { PublicShelf } from "../../src/types";
+import { ShelfFeedCard, ShelfMiniCard } from "../../src/components/ShelfFeedCard";
 
-function formatTimeAgo(dateStr: string): string {
-  const now = new Date();
-  const date = new Date(dateStr);
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 60) return `${diffMin}分前`;
-  const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return `${diffHour}時間前`;
-  const diffDay = Math.floor(diffHour / 24);
-  return `${diffDay}日前`;
-}
+type FilterTag = "all" | "popular" | "new" | "beginner" | "food" | "region";
+const FILTER_TAGS: { key: FilterTag; label: string }[] = [
+  { key: "all", label: "すべて" },
+  { key: "popular", label: "人気" },
+  { key: "new", label: "新着" },
+  { key: "beginner", label: "初心者向け" },
+  { key: "food", label: "料理に合う" },
+  { key: "region", label: "地域別" },
+];
 
-function TimelineCard({ post, onLike }: { post: TimelinePost; onLike: () => void }) {
-  const [liked, setLiked] = useState(false);
+export default function ExploreScreen() {
+  const { publicShelves, toggleShelfLike, likedShelfIds } = useApp();
+  const router = useRouter();
+  const [activeFilter, setActiveFilter] = useState<FilterTag>("all");
 
-  const handleLike = () => {
-    if (!liked) {
-      setLiked(true);
-      onLike();
+  // ランキング: いいね順
+  const ranked = [...publicShelves].sort((a, b) => b.likes - a.likes);
+  const topShelves = ranked.slice(0, 5);
+
+  // フィルター (デモ用 - 全部表示だが並び替え)
+  const filteredShelves = (() => {
+    switch (activeFilter) {
+      case "popular":
+        return [...publicShelves].sort((a, b) => b.likes - a.likes);
+      case "new":
+        return [...publicShelves].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      default:
+        return publicShelves;
     }
+  })();
+
+  const handleOpenShelf = (shelf: PublicShelf) => {
+    router.push(`/shelf/public-${shelf.id}`);
   };
-
-  return (
-    <View style={styles.card}>
-      {/* User header */}
-      <View style={styles.userHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {post.user.displayName.charAt(0)}
-          </Text>
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{post.user.displayName}</Text>
-          <Text style={styles.timeAgo}>{formatTimeAgo(post.createdAt)}</Text>
-        </View>
-      </View>
-
-      {/* Sake image */}
-      {post.imageUri ? (
-        <Image source={{ uri: post.imageUri }} style={styles.sakeImage} />
-      ) : (
-        <View style={[styles.sakeImage, styles.placeholderImage]}>
-          <Text style={styles.placeholderEmoji}>🍶</Text>
-          <Text style={styles.placeholderName}>{post.name}</Text>
-        </View>
-      )}
-
-      {/* Sake info */}
-      <View style={styles.content}>
-        <Text style={styles.sakeName}>{post.name}</Text>
-        <Text style={styles.brewery}>
-          {post.brewery} · {post.region}
-        </Text>
-        <View style={styles.metaRow}>
-          <View style={styles.typeBadge}>
-            <Text style={styles.typeText}>{SAKE_TYPE_LABELS[post.type]}</Text>
-          </View>
-          <RatingStars rating={post.rating} size={16} />
-        </View>
-        {post.comment ? (
-          <Text style={styles.comment}>{post.comment}</Text>
-        ) : null}
-
-        {/* Action bar */}
-        <View style={styles.actionBar}>
-          <TouchableOpacity style={styles.actionBtn} onPress={handleLike}>
-            <Text style={[styles.actionIcon, liked && styles.actionIconActive]}>
-              {liked ? "❤️" : "🤍"}
-            </Text>
-            <Text style={[styles.actionCount, liked && styles.actionCountActive]}>
-              {post.likes + (liked ? 1 : 0)}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn}>
-            <Text style={styles.actionIcon}>💬</Text>
-            <Text style={styles.actionCount}>コメント</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn}>
-            <Text style={styles.actionIcon}>🔖</Text>
-            <Text style={styles.actionCount}>保存</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-export default function TimelineScreen() {
-  const { timeline, toggleLike } = useApp();
 
   return (
     <View style={styles.container}>
       <FlatList
-        data={timeline}
+        data={filteredShelves}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <TimelineCard post={item} onLike={() => toggleLike(item.id)} />
+          <ShelfFeedCard
+            shelf={item}
+            liked={likedShelfIds.has(item.id)}
+            onPress={() => handleOpenShelf(item)}
+            onLike={() => toggleShelfLike(item.id)}
+          />
         )}
         ListHeaderComponent={
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>🍶 SakeSnap</Text>
-            <Text style={styles.headerSubtitle}>日本酒仲間のタイムライン</Text>
+          <View>
+            {/* アプリヘッダー */}
+            <View style={styles.header}>
+              <Text style={styles.logo}>🍶 SakeSnap</Text>
+              <Text style={styles.tagline}>みんなの棚を覗いてみよう</Text>
+            </View>
+
+            {/* 人気の棚（横スクロール） */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>🏆 人気の棚</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+              >
+                {topShelves.map((shelf) => (
+                  <ShelfMiniCard
+                    key={shelf.id}
+                    shelf={shelf}
+                    onPress={() => handleOpenShelf(shelf)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* フィルタータグ */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+            >
+              {FILTER_TAGS.map((tag) => (
+                <TouchableOpacity
+                  key={tag.key}
+                  style={[
+                    styles.filterChip,
+                    activeFilter === tag.key && styles.filterChipActive,
+                  ]}
+                  onPress={() => setActiveFilter(tag.key)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      activeFilter === tag.key && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {tag.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={styles.sectionTitle}>📚 みんなの棚</Text>
           </View>
         }
         contentContainerStyle={styles.list}
@@ -130,145 +133,56 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: SPACING.md,
-    paddingBottom: SPACING.xxl,
+    paddingBottom: SPACING.xxl * 2,
   },
   header: {
-    marginBottom: SPACING.lg,
     paddingTop: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
-  headerTitle: {
+  logo: {
     fontSize: FONT_SIZE.title,
     fontWeight: "800",
     color: COLORS.primary,
   },
-  headerSubtitle: {
+  tagline: {
     fontSize: FONT_SIZE.md,
     color: COLORS.textSecondary,
     marginTop: 2,
   },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.md,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+  section: {
+    marginBottom: SPACING.lg,
   },
-  userHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: SPACING.md,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    color: COLORS.white,
+  sectionTitle: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-  },
-  userInfo: {
-    marginLeft: SPACING.sm,
-  },
-  userName: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: "700",
     color: COLORS.text,
-  },
-  timeAgo: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textLight,
-  },
-  sakeImage: {
-    width: "100%",
-    height: 280,
-  },
-  placeholderImage: {
-    backgroundColor: COLORS.surfaceElevated,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderEmoji: {
-    fontSize: 64,
-  },
-  placeholderName: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-    marginTop: SPACING.sm,
-  },
-  content: {
-    padding: SPACING.md,
-  },
-  sakeName: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  brewery: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
     marginBottom: SPACING.sm,
   },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  horizontalList: {
+    paddingRight: SPACING.md,
+  },
+  filterRow: {
+    paddingBottom: SPACING.md,
     gap: SPACING.sm,
-    marginBottom: SPACING.sm,
   },
-  typeBadge: {
-    backgroundColor: COLORS.primaryLight + "20",
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: BORDER_RADIUS.sm,
+  filterChip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
-  typeText: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.primary,
-    fontWeight: "600",
+  filterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
-  comment: {
-    fontSize: FONT_SIZE.md,
-    color: COLORS.text,
-    lineHeight: 22,
-    marginBottom: SPACING.sm,
-  },
-  actionBar: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-    paddingTop: SPACING.sm,
-    marginTop: SPACING.xs,
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    paddingVertical: SPACING.xs,
-  },
-  actionIcon: {
-    fontSize: 18,
-  },
-  actionIconActive: {
-    color: COLORS.like,
-  },
-  actionCount: {
+  filterChipText: {
     fontSize: FONT_SIZE.sm,
     color: COLORS.textSecondary,
-  },
-  actionCountActive: {
-    color: COLORS.like,
     fontWeight: "600",
+  },
+  filterChipTextActive: {
+    color: COLORS.white,
   },
 });

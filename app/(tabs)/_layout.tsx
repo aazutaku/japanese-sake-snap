@@ -26,8 +26,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "タイムライン",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>📰</Text>,
+          title: "さがす",
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>🔍</Text>,
         }}
       />
       <Tabs.Screen

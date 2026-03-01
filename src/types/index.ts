@@ -9,7 +9,6 @@ export interface SakePost {
   imageUri: string;
   shelfId: string;
   createdAt: string;
-  likes: number;
 }
 
 export type SakeType =
@@ -49,6 +48,7 @@ export interface Shelf {
   description: string;
   emoji: string;
   createdAt: string;
+  isPublic: boolean;
 }
 
 export interface UserProfile {
@@ -60,6 +60,10 @@ export interface UserProfile {
   joinedAt: string;
 }
 
-export interface TimelinePost extends SakePost {
-  user: UserProfile;
+// 他のユーザーの公開棚 (SNSフィード用)
+export interface PublicShelf extends Shelf {
+  owner: UserProfile;
+  sakes: SakePost[];
+  likes: number;
+  followers: number;
 }

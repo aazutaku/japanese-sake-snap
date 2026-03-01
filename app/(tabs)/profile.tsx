@@ -9,12 +9,14 @@ import {
   Alert,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/constants/theme";
 import { useApp } from "../../src/store/AppContext";
 import { SAKE_TYPE_LABELS } from "../../src/types";
 
 export default function ProfileScreen() {
   const { profile, posts, shelves, updateProfile } = useApp();
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [bio, setBio] = useState(profile.bio);
@@ -22,17 +24,19 @@ export default function ProfileScreen() {
 
   const totalPosts = posts.length;
   const totalShelves = shelves.length;
-  const avgRating =
-    posts.length > 0
-      ? (posts.reduce((sum, p) => sum + p.rating, 0) / posts.length).toFixed(1)
-      : "–";
+  const publicShelves = shelves.filter((s) => s.isPublic).length;
 
-  // Most used sake type
   const typeCount: Record<string, number> = {};
   posts.forEach((p) => {
     typeCount[p.type] = (typeCount[p.type] || 0) + 1;
   });
   const topType = Object.entries(typeCount).sort((a, b) => b[1] - a[1])[0];
+
+  const regionCount: Record<string, number> = {};
+  posts.forEach((p) => {
+    if (p.region) regionCount[p.region] = (regionCount[p.region] || 0) + 1;
+  });
+  const topRegion = Object.entries(regionCount).sort((a, b) => b[1] - a[1])[0];
 
   const pickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -65,19 +69,11 @@ export default function ProfileScreen() {
       {/* Header card */}
       <View style={styles.profileCard}>
         <TouchableOpacity onPress={pickAvatar} style={styles.avatarWrapper}>
-          {profile.avatarUri ? (
-            <View style={styles.avatarImage}>
-              <Text style={styles.avatarFallback}>
-                {profile.displayName.charAt(0)}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.avatarImage}>
-              <Text style={styles.avatarFallback}>
-                {profile.displayName.charAt(0)}
-              </Text>
-            </View>
-          )}
+          <View style={styles.avatarImage}>
+            <Text style={styles.avatarFallback}>
+              {profile.displayName.charAt(0)}
+            </Text>
+          </View>
           <Text style={styles.editAvatarText}>変更</Text>
         </TouchableOpacity>
 
@@ -144,24 +140,54 @@ export default function ProfileScreen() {
       {/* Stats */}
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{totalPosts}</Text>
-          <Text style={styles.statLabel}>記録</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
           <Text style={styles.statNumber}>{totalShelves}</Text>
           <Text style={styles.statLabel}>棚</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{avgRating}</Text>
-          <Text style={styles.statLabel}>平均評価</Text>
+          <Text style={styles.statNumber}>{totalPosts}</Text>
+          <Text style={styles.statLabel}>記録</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{publicShelves}</Text>
+          <Text style={styles.statLabel}>公開中</Text>
         </View>
       </View>
 
+      {/* マイ棚一覧（メインコンテンツ） */}
+      <Text style={styles.sectionTitle}>マイ棚</Text>
+      {shelves.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyEmoji}>🗄️</Text>
+          <Text style={styles.emptyText}>棚を作ってお酒をコレクションしよう</Text>
+        </View>
+      ) : (
+        shelves.map((shelf) => {
+          const count = posts.filter((p) => p.shelfId === shelf.id).length;
+          return (
+            <TouchableOpacity
+              key={shelf.id}
+              style={styles.shelfRow}
+              onPress={() => router.push(`/shelf/${shelf.id}`)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.shelfEmoji}>{shelf.emoji}</Text>
+              <View style={styles.shelfInfo}>
+                <Text style={styles.shelfName}>{shelf.name}</Text>
+                <Text style={styles.shelfMeta}>
+                  {count}本 · {shelf.isPublic ? "🌐 公開中" : "🔒 非公開"}
+                </Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          );
+        })
+      )}
+
       {/* Insights */}
+      <Text style={styles.sectionTitle}>あなたの日本酒レポート</Text>
       <View style={styles.insightsCard}>
-        <Text style={styles.insightsTitle}>あなたの日本酒レポート</Text>
         {posts.length === 0 ? (
           <Text style={styles.insightsEmpty}>
             お酒を追加すると、あなたの好みの傾向が表示されます
@@ -176,32 +202,21 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             )}
+            {topRegion && (
+              <View style={styles.insightRow}>
+                <Text style={styles.insightLabel}>よく飲む産地</Text>
+                <Text style={styles.insightValue}>
+                  {topRegion[0]} ({topRegion[1]}回)
+                </Text>
+              </View>
+            )}
             <View style={styles.insightRow}>
               <Text style={styles.insightLabel}>記録本数</Text>
               <Text style={styles.insightValue}>{totalPosts}本</Text>
             </View>
-            <View style={styles.insightRow}>
-              <Text style={styles.insightLabel}>使用中の棚</Text>
-              <Text style={styles.insightValue}>{totalShelves}棚</Text>
-            </View>
           </>
         )}
       </View>
-
-      {/* Recent shelves */}
-      <Text style={styles.sectionTitle}>マイ棚</Text>
-      {shelves.map((shelf) => {
-        const count = posts.filter((p) => p.shelfId === shelf.id).length;
-        return (
-          <View key={shelf.id} style={styles.shelfRow}>
-            <Text style={styles.shelfEmoji}>{shelf.emoji}</Text>
-            <View style={styles.shelfInfo}>
-              <Text style={styles.shelfName}>{shelf.name}</Text>
-              <Text style={styles.shelfPostCount}>{count}本のお酒</Text>
-            </View>
-          </View>
-        );
-      })}
     </ScrollView>
   );
 }
@@ -356,17 +371,67 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: COLORS.borderLight,
   },
+  sectionTitle: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  emptyCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.xl,
+    alignItems: "center",
+  },
+  emptyEmoji: {
+    fontSize: 40,
+    marginBottom: SPACING.sm,
+  },
+  emptyText: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textLight,
+    textAlign: "center",
+  },
+  shelfRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  shelfEmoji: {
+    fontSize: 28,
+    marginRight: SPACING.md,
+  },
+  shelfInfo: {
+    flex: 1,
+  },
+  shelfName: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+  shelfMeta: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  chevron: {
+    fontSize: 24,
+    color: COLORS.textLight,
+    fontWeight: "300",
+  },
   insightsCard: {
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
-    marginTop: SPACING.md,
-  },
-  insightsTitle: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: SPACING.md,
   },
   insightsEmpty: {
     fontSize: FONT_SIZE.md,
@@ -389,37 +454,5 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.md,
     fontWeight: "600",
     color: COLORS.text,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.md,
-  },
-  shelfRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  shelfEmoji: {
-    fontSize: 28,
-    marginRight: SPACING.md,
-  },
-  shelfInfo: {
-    flex: 1,
-  },
-  shelfName: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  shelfPostCount: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
   },
 });

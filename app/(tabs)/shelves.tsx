@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TextInput,
   Modal,
+  Switch,
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -32,6 +33,11 @@ function ShelfCard({ shelf, postCount, onPress, onLongPress }: {
       <Text style={styles.shelfEmoji}>{shelf.emoji}</Text>
       <Text style={styles.shelfName}>{shelf.name}</Text>
       <Text style={styles.shelfCount}>{postCount}本</Text>
+      <View style={[styles.visBadge, shelf.isPublic && styles.visBadgePublic]}>
+        <Text style={[styles.visText, shelf.isPublic && styles.visTextPublic]}>
+          {shelf.isPublic ? "🌐 公開" : "🔒 非公開"}
+        </Text>
+      </View>
       {shelf.description ? (
         <Text style={styles.shelfDesc} numberOfLines={2}>
           {shelf.description}
@@ -48,13 +54,15 @@ export default function ShelvesScreen() {
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [selectedEmoji, setSelectedEmoji] = useState("🍶");
+  const [isPublic, setIsPublic] = useState(false);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    await addShelf(newName.trim(), selectedEmoji, newDesc.trim());
+    await addShelf(newName.trim(), selectedEmoji, newDesc.trim(), isPublic);
     setNewName("");
     setNewDesc("");
     setSelectedEmoji("🍶");
+    setIsPublic(false);
     setModalVisible(false);
   };
 
@@ -72,6 +80,9 @@ export default function ShelvesScreen() {
       ]
     );
   };
+
+  const totalSakes = posts.length;
+  const publicCount = shelves.filter((s) => s.isPublic).length;
 
   return (
     <View style={styles.container}>
@@ -91,7 +102,9 @@ export default function ShelvesScreen() {
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.title}>マイ棚</Text>
-            <Text style={styles.subtitle}>カテゴリごとにお酒を整理しよう</Text>
+            <Text style={styles.subtitle}>
+              {shelves.length}棚 · {totalSakes}本 · {publicCount}棚を公開中
+            </Text>
           </View>
         }
         ListFooterComponent={
@@ -153,6 +166,21 @@ export default function ShelvesScreen() {
               numberOfLines={2}
             />
 
+            <View style={styles.publicRow}>
+              <View>
+                <Text style={styles.label}>みんなに公開する</Text>
+                <Text style={styles.publicHint}>
+                  公開するとSakeSnapのみんなが見れるようになります
+                </Text>
+              </View>
+              <Switch
+                value={isPublic}
+                onValueChange={setIsPublic}
+                trackColor={{ false: COLORS.borderLight, true: COLORS.primaryLight }}
+                thumbColor={isPublic ? COLORS.primary : COLORS.textLight}
+              />
+            </View>
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.cancelBtn}
@@ -212,7 +240,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 1,
-    minHeight: 140,
+    minHeight: 150,
   },
   shelfEmoji: {
     fontSize: 36,
@@ -228,6 +256,25 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: "600",
     marginTop: 2,
+  },
+  visBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: COLORS.surfaceElevated,
+    marginTop: SPACING.xs,
+  },
+  visBadgePublic: {
+    backgroundColor: COLORS.accentLight + "20",
+  },
+  visText: {
+    fontSize: 9,
+    color: COLORS.textLight,
+    fontWeight: "600",
+  },
+  visTextPublic: {
+    color: COLORS.accent,
   },
   shelfDesc: {
     fontSize: FONT_SIZE.xs,
@@ -305,6 +352,18 @@ const styles = StyleSheet.create({
   inputMultiline: {
     minHeight: 60,
     textAlignVertical: "top",
+  },
+  publicRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  publicHint: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textLight,
+    marginTop: 2,
   },
   modalActions: {
     flexDirection: "row",
