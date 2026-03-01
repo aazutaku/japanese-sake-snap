@@ -5,27 +5,38 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  FlatList,
 } from "react-native";
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/constants/theme";
 import { useApp } from "../../src/store/AppContext";
 import {
   STAMP_RALLIES,
   StampRally,
+  Brewery,
   getRallyProgress,
   getTotalStamps,
 } from "../../src/constants/stampRally";
 
+type ViewMode = "list" | "detail";
+
 export default function StampRallyScreen() {
   const { posts } = useApp();
   const [selectedRally, setSelectedRally] = useState<StampRally | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const totalStamps = getTotalStamps(posts);
+  const totalPercentage = totalStamps.total > 0
+    ? Math.round((totalStamps.stamped / totalStamps.total) * 100)
+    : 0;
 
-  if (selectedRally) {
+  if (viewMode === "detail" && selectedRally) {
     return (
       <RallyDetail
         rally={selectedRally}
         posts={posts}
-        onBack={() => setSelectedRally(null)}
+        onBack={() => {
+          setViewMode("list");
+          setSelectedRally(null);
+        }}
       />
     );
   }
@@ -37,89 +48,177 @@ export default function StampRallyScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* ヘッダー */}
-      <View style={styles.header}>
-        <Text style={styles.headerEmoji}>🏯</Text>
-        <Text style={styles.headerTitle}>酒蔵スタンプラリー</Text>
-        <Text style={styles.headerSub}>全国の名門酒蔵を巡ってスタンプを集めよう</Text>
-      </View>
-
-      {/* 総合進捗 */}
-      <View style={styles.totalCard}>
-        <View style={styles.totalRow}>
-          <View style={styles.totalStat}>
-            <Text style={styles.totalNum}>{totalStamps.stamped}</Text>
-            <Text style={styles.totalLabel}>獲得スタンプ</Text>
+      <View style={styles.heroSection}>
+        <View style={styles.heroIconRow}>
+          <Text style={styles.heroIcon}>🏯</Text>
+          <View style={styles.heroTitleWrap}>
+            <Text style={styles.heroTitle}>酒蔵スタンプラリー</Text>
+            <Text style={styles.heroSub}>全国の名門酒蔵を巡ろう</Text>
           </View>
-          <View style={styles.totalDivider} />
-          <View style={styles.totalStat}>
-            <Text style={styles.totalNum}>{totalStamps.total}</Text>
-            <Text style={styles.totalLabel}>全スタンプ</Text>
-          </View>
-          <View style={styles.totalDivider} />
-          <View style={styles.totalStat}>
-            <Text style={styles.totalNum}>{STAMP_RALLIES.length}</Text>
-            <Text style={styles.totalLabel}>コース</Text>
-          </View>
-        </View>
-        <View style={styles.totalProgress}>
-          <View
-            style={[
-              styles.totalProgressFill,
-              { width: `${totalStamps.total > 0 ? (totalStamps.stamped / totalStamps.total) * 100 : 0}%` },
-            ]}
-          />
         </View>
       </View>
 
-      {/* ラリー一覧 */}
-      {STAMP_RALLIES.map((rally) => {
-        const progress = getRallyProgress(rally, posts);
-        const isComplete = progress.stamped.size === progress.total;
-        return (
-          <TouchableOpacity
-            key={rally.id}
-            style={[styles.rallyCard, isComplete && styles.rallyCardComplete]}
-            onPress={() => setSelectedRally(rally)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.rallyHeader}>
-              <Text style={styles.rallyEmoji}>{rally.emoji}</Text>
-              <View style={styles.rallyInfo}>
-                <View style={styles.rallyTitleRow}>
-                  <Text style={styles.rallyName}>{rally.name}</Text>
-                  {isComplete && <Text style={styles.completeBadge}>COMPLETE</Text>}
+      {/* 総合進捗カード */}
+      <View style={styles.statsCard}>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{totalStamps.stamped}</Text>
+            <Text style={styles.statLabel}>獲得</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{totalStamps.total}</Text>
+            <Text style={styles.statLabel}>全蔵</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{STAMP_RALLIES.length}</Text>
+            <Text style={styles.statLabel}>コース</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: COLORS.star }]}>
+              {totalPercentage}%
+            </Text>
+            <Text style={styles.statLabel}>達成率</Text>
+          </View>
+        </View>
+        <View style={styles.progressBarBg}>
+          <View style={[styles.progressBarFill, { width: `${totalPercentage}%` }]} />
+        </View>
+        <Text style={styles.progressLabel}>
+          全国制覇まであと {totalStamps.total - totalStamps.stamped} 蔵
+        </Text>
+      </View>
+
+      {/* テーマ別 */}
+      <Text style={styles.groupTitle}>🎯 テーマ別コース</Text>
+      {STAMP_RALLIES.filter((r) =>
+        ["legendary", "modern"].includes(r.id)
+      ).map((rally) => (
+        <RallyCard
+          key={rally.id}
+          rally={rally}
+          posts={posts}
+          onPress={() => {
+            setSelectedRally(rally);
+            setViewMode("detail");
+          }}
+        />
+      ))}
+
+      {/* 地方別 */}
+      <Text style={styles.groupTitle}>🗾 地方別コース</Text>
+      {STAMP_RALLIES.filter(
+        (r) => !["legendary", "modern"].includes(r.id)
+      ).map((rally) => (
+        <RallyCard
+          key={rally.id}
+          rally={rally}
+          posts={posts}
+          onPress={() => {
+            setSelectedRally(rally);
+            setViewMode("detail");
+          }}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+
+// ===== ラリーカード =====
+function RallyCard({
+  rally,
+  posts,
+  onPress,
+}: {
+  rally: StampRally;
+  posts: ReturnType<typeof useApp>["posts"];
+  onPress: () => void;
+}) {
+  const progress = getRallyProgress(rally, posts);
+  const isComplete = progress.stamped.size === progress.total;
+
+  return (
+    <TouchableOpacity
+      style={styles.rallyCard}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {/* カラーアクセント */}
+      <View style={[styles.rallyAccent, { backgroundColor: rally.color }]} />
+
+      <View style={styles.rallyBody}>
+        {/* ヘッダー行 */}
+        <View style={styles.rallyHeaderRow}>
+          <View style={[styles.rallyEmojiWrap, { backgroundColor: rally.color + "15" }]}>
+            <Text style={styles.rallyEmoji}>{rally.emoji}</Text>
+          </View>
+          <View style={styles.rallyHeaderInfo}>
+            <View style={styles.rallyNameRow}>
+              <Text style={styles.rallyName} numberOfLines={1}>{rally.name}</Text>
+              {isComplete && (
+                <View style={styles.completeBadge}>
+                  <Text style={styles.completeBadgeText}>達成</Text>
                 </View>
-                <Text style={styles.rallyDesc}>{rally.description}</Text>
-              </View>
+              )}
             </View>
+            <Text style={styles.rallyDesc} numberOfLines={2}>{rally.description}</Text>
+          </View>
+        </View>
 
-            {/* スタンプ進捗 */}
-            <View style={styles.stampRow}>
-              {rally.breweries.map((brewery) => {
-                const has = progress.stamped.has(brewery.id);
-                return (
-                  <View
-                    key={brewery.id}
-                    style={[styles.stampCircle, has && styles.stampCircleDone]}
-                  >
-                    <Text style={styles.stampIcon}>{has ? "🏯" : "○"}</Text>
-                  </View>
-                );
-              })}
-            </View>
-
-            <View style={styles.rallyProgress}>
+        {/* スタンプミニプレビュー */}
+        <View style={styles.miniStampRow}>
+          {rally.breweries.slice(0, 8).map((b) => {
+            const has = progress.stamped.has(b.id);
+            return (
               <View
-                style={[styles.rallyProgressFill, { width: `${progress.percentage}%` }]}
+                key={b.id}
+                style={[
+                  styles.miniStamp,
+                  has
+                    ? [styles.miniStampDone, { borderColor: rally.color }]
+                    : undefined,
+                ]}
+              >
+                {has ? (
+                  <Text style={[styles.miniStampText, { color: rally.color }]}>
+                    {b.name.charAt(0)}
+                  </Text>
+                ) : (
+                  <Text style={styles.miniStampEmpty}>・</Text>
+                )}
+              </View>
+            );
+          })}
+          {rally.breweries.length > 8 && (
+            <View style={styles.miniStampMore}>
+              <Text style={styles.miniStampMoreText}>+{rally.breweries.length - 8}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* プログレス */}
+        <View style={styles.rallyFooter}>
+          <View style={styles.rallyProgressWrap}>
+            <View style={styles.rallyProgressBg}>
+              <View
+                style={[
+                  styles.rallyProgressFill,
+                  {
+                    width: `${progress.percentage}%`,
+                    backgroundColor: isComplete ? COLORS.star : rally.color,
+                  },
+                ]}
               />
             </View>
-            <Text style={styles.rallyProgressText}>
-              {progress.stamped.size}/{progress.total} ({progress.percentage}%)
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+          </View>
+          <Text style={[styles.rallyProgressNum, { color: rally.color }]}>
+            {progress.stamped.size}/{progress.total}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -144,49 +243,108 @@ function RallyDetail({
     >
       {/* 戻るボタン */}
       <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-        <Text style={styles.backBtnText}>← スタンプラリー一覧</Text>
+        <Text style={styles.backBtnText}>← 一覧に戻る</Text>
       </TouchableOpacity>
 
-      {/* ラリーヘッダー */}
-      <View style={[styles.detailHeader, isComplete && styles.detailHeaderComplete]}>
-        <Text style={styles.detailEmoji}>{rally.emoji}</Text>
-        <Text style={styles.detailName}>{rally.name}</Text>
-        <Text style={styles.detailDesc}>{rally.description}</Text>
-        {isComplete && (
-          <View style={styles.completeCard}>
-            <Text style={styles.completeCardEmoji}>🎊</Text>
-            <Text style={styles.completeCardText}>コンプリート！</Text>
-          </View>
-        )}
-        <View style={styles.detailProgress}>
-          <View style={[styles.detailProgressFill, { width: `${progress.percentage}%` }]} />
+      {/* 詳細ヘッダー */}
+      <View style={[styles.detailHero, { borderColor: rally.color + "40" }]}>
+        <View style={[styles.detailHeroBanner, { backgroundColor: rally.color + "10" }]}>
+          <Text style={styles.detailEmoji}>{rally.emoji}</Text>
+          <Text style={styles.detailName}>{rally.name}</Text>
+          <Text style={styles.detailDesc}>{rally.description}</Text>
+          {isComplete && (
+            <View style={[styles.completeRibbon, { backgroundColor: COLORS.star + "18" }]}>
+              <Text style={styles.completeRibbonIcon}>🎊</Text>
+              <Text style={styles.completeRibbonText}>コンプリート！</Text>
+            </View>
+          )}
         </View>
-        <Text style={styles.detailProgressText}>
-          {progress.stamped.size}/{progress.total} スタンプ獲得
-        </Text>
+        <View style={styles.detailStatsRow}>
+          <View style={styles.detailStatItem}>
+            <Text style={[styles.detailStatNum, { color: rally.color }]}>
+              {progress.stamped.size}
+            </Text>
+            <Text style={styles.detailStatLabel}>獲得</Text>
+          </View>
+          <View style={styles.detailStatDivider} />
+          <View style={styles.detailStatItem}>
+            <Text style={styles.detailStatNum}>{progress.total}</Text>
+            <Text style={styles.detailStatLabel}>全蔵</Text>
+          </View>
+          <View style={styles.detailStatDivider} />
+          <View style={styles.detailStatItem}>
+            <Text style={[styles.detailStatNum, { color: COLORS.star }]}>
+              {progress.percentage}%
+            </Text>
+            <Text style={styles.detailStatLabel}>達成率</Text>
+          </View>
+        </View>
+        <View style={styles.detailProgressBg}>
+          <View
+            style={[
+              styles.detailProgressFill,
+              {
+                width: `${progress.percentage}%`,
+                backgroundColor: isComplete ? COLORS.star : rally.color,
+              },
+            ]}
+          />
+        </View>
       </View>
 
       {/* スタンプカード */}
-      <View style={styles.stampCard}>
-        <Text style={styles.stampCardTitle}>スタンプカード</Text>
+      <View style={styles.stampBook}>
+        <View style={styles.stampBookHeader}>
+          <View style={[styles.stampBookLine, { backgroundColor: rally.color + "30" }]} />
+          <Text style={styles.stampBookTitle}>スタンプカード</Text>
+          <View style={[styles.stampBookLine, { backgroundColor: rally.color + "30" }]} />
+        </View>
         <View style={styles.stampGrid}>
           {rally.breweries.map((brewery) => {
             const has = progress.stamped.has(brewery.id);
             const relatedPosts = posts.filter((p) => p.brewery === brewery.name);
             return (
-              <View
-                key={brewery.id}
-                style={[styles.stampSlot, has && styles.stampSlotDone]}
-              >
-                <Text style={styles.stampSlotIcon}>{has ? "🏯" : "?"}</Text>
+              <View key={brewery.id} style={styles.stampSlot}>
+                <View
+                  style={[
+                    styles.stampCircle,
+                    has
+                      ? { backgroundColor: rally.color + "12", borderColor: rally.color }
+                      : undefined,
+                  ]}
+                >
+                  {has ? (
+                    <View style={styles.stampSealWrap}>
+                      <View style={[styles.stampSeal, { backgroundColor: rally.color + "18" }]}>
+                        <Text style={[styles.stampSealChar, { color: rally.color }]}>
+                          {brewery.name.charAt(0)}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.stampEmptyInner}>
+                      <Text style={styles.stampEmptyChar}>?</Text>
+                    </View>
+                  )}
+                </View>
                 <Text
-                  style={[styles.stampSlotName, has && styles.stampSlotNameDone]}
+                  style={[
+                    styles.stampName,
+                    has && { color: rally.color, fontWeight: "700" },
+                  ]}
                   numberOfLines={1}
                 >
                   {brewery.name}
                 </Text>
+                <Text style={styles.stampRegion} numberOfLines={1}>
+                  {brewery.region}
+                </Text>
                 {has && relatedPosts.length > 0 && (
-                  <Text style={styles.stampSlotCount}>{relatedPosts.length}本</Text>
+                  <View style={[styles.stampCount, { backgroundColor: rally.color + "15" }]}>
+                    <Text style={[styles.stampCountText, { color: rally.color }]}>
+                      {relatedPosts.length}本記録
+                    </Text>
+                  </View>
                 )}
               </View>
             );
@@ -194,38 +352,63 @@ function RallyDetail({
         </View>
       </View>
 
-      {/* 酒蔵リスト */}
-      <Text style={styles.breweryListTitle}>酒蔵ガイド</Text>
-      {rally.breweries.map((brewery) => {
-        const has = progress.stamped.has(brewery.id);
-        const relatedPosts = posts.filter((p) => p.brewery === brewery.name);
-        return (
-          <View
-            key={brewery.id}
-            style={[styles.breweryItem, has && styles.breweryItemDone]}
-          >
-            <View style={styles.breweryLeft}>
-              <View style={[styles.breweryStamp, has && styles.breweryStampDone]}>
-                <Text style={styles.breweryStampText}>{has ? "済" : "未"}</Text>
-              </View>
-              <View style={styles.breweryInfo}>
-                <Text style={[styles.breweryName, has && styles.breweryNameDone]}>
-                  {brewery.name}
-                </Text>
-                <Text style={styles.breweryRegion}>{brewery.region}</Text>
-                <Text style={styles.breweryDesc}>{brewery.description}</Text>
-                <Text style={styles.breweryFamous}>代表銘柄: {brewery.famous}</Text>
+      {/* 酒蔵ガイド */}
+      <View style={styles.guideSection}>
+        <Text style={styles.guideTitle}>🍶 酒蔵ガイド</Text>
+        {rally.breweries.map((brewery) => {
+          const has = progress.stamped.has(brewery.id);
+          const relatedPosts = posts.filter((p) => p.brewery === brewery.name);
+          return (
+            <View
+              key={brewery.id}
+              style={[
+                styles.guideCard,
+                has && { borderLeftColor: rally.color },
+              ]}
+            >
+              <View style={styles.guideCardBody}>
+                <View style={styles.guideCardHeader}>
+                  <View
+                    style={[
+                      styles.guideStampMark,
+                      has
+                        ? { backgroundColor: rally.color }
+                        : undefined,
+                    ]}
+                  >
+                    <Text style={[styles.guideStampText, has && { color: COLORS.white }]}>
+                      {has ? "済" : "未"}
+                    </Text>
+                  </View>
+                  <View style={styles.guideCardInfo}>
+                    <Text style={[styles.guideName, has && { color: rally.color }]}>
+                      {brewery.name}
+                    </Text>
+                    <View style={styles.guideRegionRow}>
+                      <Text style={styles.guideRegion}>{brewery.region}</Text>
+                    </View>
+                  </View>
+                  {has && relatedPosts.length > 0 && (
+                    <View style={[styles.guideRecordBadge, { backgroundColor: rally.color + "12" }]}>
+                      <Text style={[styles.guideRecordNum, { color: rally.color }]}>
+                        {relatedPosts.length}
+                      </Text>
+                      <Text style={[styles.guideRecordUnit, { color: rally.color }]}>本</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.guideDesc}>{brewery.description}</Text>
+                <View style={styles.guideFamousRow}>
+                  <Text style={styles.guideFamousLabel}>代表銘柄</Text>
+                  <Text style={[styles.guideFamousName, { color: rally.color }]}>
+                    {brewery.famous}
+                  </Text>
+                </View>
               </View>
             </View>
-            {has && relatedPosts.length > 0 && (
-              <View style={styles.breweryRecords}>
-                <Text style={styles.breweryRecordCount}>{relatedPosts.length}本</Text>
-                <Text style={styles.breweryRecordLabel}>記録</Text>
-              </View>
-            )}
-          </View>
-        );
-      })}
+          );
+        })}
+      </View>
     </ScrollView>
   );
 }
@@ -239,192 +422,265 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     paddingBottom: SPACING.xxl * 2,
   },
-  header: {
-    alignItems: "center",
-    paddingVertical: SPACING.md,
-  },
-  headerEmoji: {
-    fontSize: 48,
-  },
-  headerTitle: {
-    fontSize: FONT_SIZE.title,
-    fontWeight: "800",
-    color: COLORS.text,
-    marginTop: SPACING.xs,
-  },
-  headerSub: {
-    fontSize: FONT_SIZE.md,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-    textAlign: "center",
-  },
 
-  // 総合進捗
-  totalCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+  // ===== ヒーロー =====
+  heroSection: {
+    paddingVertical: SPACING.md,
+    paddingBottom: SPACING.lg,
   },
-  totalRow: {
+  heroIconRow: {
     flexDirection: "row",
-    marginBottom: SPACING.md,
-  },
-  totalStat: {
-    flex: 1,
     alignItems: "center",
   },
-  totalNum: {
+  heroIcon: {
+    fontSize: 40,
+    marginRight: SPACING.md,
+  },
+  heroTitleWrap: {
+    flex: 1,
+  },
+  heroTitle: {
     fontSize: FONT_SIZE.xxl,
     fontWeight: "800",
-    color: COLORS.primary,
+    color: COLORS.text,
   },
-  totalLabel: {
-    fontSize: FONT_SIZE.xs,
+  heroSub: {
+    fontSize: FONT_SIZE.sm,
     color: COLORS.textSecondary,
     marginTop: 2,
   },
-  totalDivider: {
-    width: 1,
-    backgroundColor: COLORS.borderLight,
-  },
-  totalProgress: {
-    height: 8,
-    backgroundColor: COLORS.borderLight,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  totalProgressFill: {
-    height: "100%",
-    backgroundColor: COLORS.primary,
-    borderRadius: 4,
-  },
 
-  // ラリーカード
-  rallyCard: {
+  // ===== 総合統計 =====
+  statsCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.lg,
+    marginBottom: SPACING.xl,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  rallyCardComplete: {
-    borderWidth: 2,
-    borderColor: COLORS.star,
-  },
-  rallyHeader: {
+  statsRow: {
     flexDirection: "row",
     marginBottom: SPACING.md,
   },
-  rallyEmoji: {
-    fontSize: 36,
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statNumber: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: "800",
+    color: COLORS.primary,
+  },
+  statLabel: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: COLORS.borderLight,
+    marginVertical: 4,
+  },
+  progressBarBg: {
+    height: 10,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: 5,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: COLORS.primary,
+    borderRadius: 5,
+  },
+  progressLabel: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    marginTop: SPACING.sm,
+  },
+
+  // ===== グループ見出し =====
+  groupTitle: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+
+  // ===== ラリーカード =====
+  rallyCard: {
+    flexDirection: "row",
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.md,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  rallyAccent: {
+    width: 5,
+  },
+  rallyBody: {
+    flex: 1,
+    padding: SPACING.md,
+  },
+  rallyHeaderRow: {
+    flexDirection: "row",
+    marginBottom: SPACING.sm,
+  },
+  rallyEmojiWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: SPACING.sm,
   },
-  rallyInfo: {
+  rallyEmoji: {
+    fontSize: 24,
+  },
+  rallyHeaderInfo: {
     flex: 1,
   },
-  rallyTitleRow: {
+  rallyNameRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING.sm,
   },
   rallyName: {
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.md,
     fontWeight: "700",
     color: COLORS.text,
+    flex: 1,
   },
   completeBadge: {
-    fontSize: 9,
+    backgroundColor: COLORS.star + "18",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.full,
+  },
+  completeBadgeText: {
+    fontSize: 10,
     fontWeight: "800",
     color: COLORS.star,
-    backgroundColor: COLORS.star + "15",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.sm,
   },
   rallyDesc: {
-    fontSize: FONT_SIZE.sm,
+    fontSize: FONT_SIZE.xs,
     color: COLORS.textSecondary,
     marginTop: 2,
-    lineHeight: 18,
+    lineHeight: 16,
   },
 
-  stampRow: {
+  // ミニスタンプ
+  miniStampRow: {
     flexDirection: "row",
-    justifyContent: "center",
-    gap: SPACING.sm,
-    marginBottom: SPACING.md,
+    flexWrap: "wrap",
+    gap: 4,
+    marginBottom: SPACING.sm,
   },
-  stampCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  miniStamp: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: COLORS.surfaceElevated,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: COLORS.borderLight,
-    borderStyle: "dashed",
   },
-  stampCircleDone: {
-    backgroundColor: COLORS.primary + "15",
-    borderColor: COLORS.primary,
-    borderStyle: "solid",
+  miniStampDone: {
+    backgroundColor: COLORS.white,
+    borderWidth: 2,
   },
-  stampIcon: {
-    fontSize: 18,
+  miniStampText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  miniStampEmpty: {
+    fontSize: 10,
+    color: COLORS.borderLight,
+  },
+  miniStampMore: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.surfaceElevated,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  miniStampMoreText: {
+    fontSize: 9,
+    color: COLORS.textLight,
+    fontWeight: "600",
   },
 
-  rallyProgress: {
+  // プログレス
+  rallyFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  rallyProgressWrap: {
+    flex: 1,
+  },
+  rallyProgressBg: {
     height: 6,
-    backgroundColor: COLORS.borderLight,
+    backgroundColor: COLORS.surfaceElevated,
     borderRadius: 3,
     overflow: "hidden",
   },
   rallyProgressFill: {
     height: "100%",
-    backgroundColor: COLORS.primary,
     borderRadius: 3,
   },
-  rallyProgressText: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
+  rallyProgressNum: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: "700",
+    minWidth: 36,
     textAlign: "right",
-    marginTop: SPACING.xs,
   },
 
-  // --- ラリー詳細 ---
+  // ===== 詳細画面 =====
   backBtn: {
     paddingVertical: SPACING.sm,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   backBtnText: {
     fontSize: FONT_SIZE.md,
     color: COLORS.primary,
     fontWeight: "600",
   },
-  detailHeader: {
+
+  // 詳細ヒーロー
+  detailHero: {
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.lg,
-    alignItems: "center",
+    overflow: "hidden",
     marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  detailHeaderComplete: {
-    borderWidth: 2,
-    borderColor: COLORS.star,
+  detailHeroBanner: {
+    alignItems: "center",
+    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.lg,
   },
   detailEmoji: {
-    fontSize: 56,
+    fontSize: 52,
   },
   detailName: {
     fontSize: FONT_SIZE.xxl,
@@ -434,63 +690,94 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   detailDesc: {
-    fontSize: FONT_SIZE.md,
+    fontSize: FONT_SIZE.sm,
     color: COLORS.textSecondary,
     marginTop: SPACING.xs,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 20,
   },
-  completeCard: {
+  completeRibbon: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.star + "15",
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.full,
     marginTop: SPACING.md,
     gap: SPACING.xs,
   },
-  completeCardEmoji: {
-    fontSize: 20,
+  completeRibbonIcon: {
+    fontSize: 18,
   },
-  completeCardText: {
+  completeRibbonText: {
     fontSize: FONT_SIZE.md,
     fontWeight: "800",
     color: COLORS.star,
   },
-  detailProgress: {
-    width: "100%",
-    height: 8,
+  detailStatsRow: {
+    flexDirection: "row",
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+  },
+  detailStatItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  detailStatNum: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: "800",
+    color: COLORS.text,
+  },
+  detailStatLabel: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  detailStatDivider: {
+    width: 1,
     backgroundColor: COLORS.borderLight,
+    marginVertical: 4,
+  },
+  detailProgressBg: {
+    height: 8,
+    backgroundColor: COLORS.surfaceElevated,
     borderRadius: 4,
     overflow: "hidden",
-    marginTop: SPACING.lg,
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.lg,
   },
   detailProgressFill: {
     height: "100%",
-    backgroundColor: COLORS.primary,
     borderRadius: 4,
   },
-  detailProgressText: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.primary,
-    fontWeight: "700",
-    marginTop: SPACING.xs,
-  },
 
-  // スタンプカード
-  stampCard: {
+  // ===== スタンプブック =====
+  stampBook: {
     backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.lg,
     marginBottom: SPACING.lg,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  stampCardTitle: {
-    fontSize: FONT_SIZE.lg,
+  stampBookHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  stampBookLine: {
+    flex: 1,
+    height: 1,
+  },
+  stampBookTitle: {
+    fontSize: FONT_SIZE.md,
     fontWeight: "700",
     color: COLORS.text,
-    marginBottom: SPACING.md,
-    textAlign: "center",
   },
   stampGrid: {
     flexDirection: "row",
@@ -499,120 +786,162 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   stampSlot: {
-    width: 80,
-    height: 90,
-    borderRadius: BORDER_RADIUS.md,
+    width: 88,
+    alignItems: "center",
+  },
+  stampCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: COLORS.surfaceElevated,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
     borderColor: COLORS.borderLight,
     borderStyle: "dashed",
-    padding: SPACING.xs,
   },
-  stampSlotDone: {
-    backgroundColor: COLORS.primary + "10",
-    borderColor: COLORS.primary,
-    borderStyle: "solid",
+  stampSealWrap: {
+    alignItems: "center",
+    justifyContent: "center",
   },
-  stampSlotIcon: {
-    fontSize: 28,
+  stampSeal: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  stampSlotName: {
-    fontSize: 9,
-    fontWeight: "600",
+  stampSealChar: {
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  stampEmptyInner: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stampEmptyChar: {
+    fontSize: 22,
+    color: COLORS.borderLight,
+    fontWeight: "300",
+  },
+  stampName: {
+    fontSize: 10,
+    fontWeight: "500",
     color: COLORS.textSecondary,
     textAlign: "center",
-    marginTop: 4,
+    marginTop: 6,
   },
-  stampSlotNameDone: {
-    color: COLORS.primary,
+  stampRegion: {
+    fontSize: 9,
+    color: COLORS.textLight,
+    textAlign: "center",
+    marginTop: 1,
   },
-  stampSlotCount: {
+  stampCount: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: BORDER_RADIUS.full,
+    marginTop: 3,
+  },
+  stampCountText: {
     fontSize: 8,
-    color: COLORS.primary,
     fontWeight: "700",
   },
 
-  // 酒蔵リスト
-  breweryListTitle: {
+  // ===== 酒蔵ガイド =====
+  guideSection: {
+    marginBottom: SPACING.lg,
+  },
+  guideTitle: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
     color: COLORS.text,
     marginBottom: SPACING.md,
   },
-  breweryItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  guideCard: {
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
     marginBottom: SPACING.sm,
     borderLeftWidth: 4,
     borderLeftColor: COLORS.borderLight,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  breweryItemDone: {
-    borderLeftColor: COLORS.primary,
+  guideCardBody: {
+    padding: SPACING.md,
   },
-  breweryLeft: {
+  guideCardHeader: {
     flexDirection: "row",
-    flex: 1,
+    alignItems: "center",
   },
-  breweryStamp: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  guideStampMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: COLORS.surfaceElevated,
     justifyContent: "center",
     alignItems: "center",
     marginRight: SPACING.sm,
   },
-  breweryStampDone: {
-    backgroundColor: COLORS.primary,
-  },
-  breweryStampText: {
+  guideStampText: {
     fontSize: FONT_SIZE.xs,
     fontWeight: "800",
     color: COLORS.textLight,
   },
-  breweryInfo: {
+  guideCardInfo: {
     flex: 1,
   },
-  breweryName: {
+  guideName: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
     color: COLORS.text,
   },
-  breweryNameDone: {
-    color: COLORS.primary,
+  guideRegionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 1,
   },
-  breweryRegion: {
+  guideRegion: {
     fontSize: FONT_SIZE.xs,
     color: COLORS.textSecondary,
   },
-  breweryDesc: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textLight,
-    marginTop: 2,
-  },
-  breweryFamous: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.secondary,
-    fontWeight: "600",
-    marginTop: 2,
-  },
-  breweryRecords: {
+  guideRecordBadge: {
     alignItems: "center",
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.md,
     marginLeft: SPACING.sm,
   },
-  breweryRecordCount: {
+  guideRecordNum: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "800",
-    color: COLORS.primary,
   },
-  breweryRecordLabel: {
+  guideRecordUnit: {
     fontSize: 9,
+    fontWeight: "600",
+  },
+  guideDesc: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textLight,
+    marginTop: SPACING.xs,
+    lineHeight: 16,
+  },
+  guideFamousRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: SPACING.xs,
+    gap: SPACING.xs,
+  },
+  guideFamousLabel: {
+    fontSize: FONT_SIZE.xs,
     color: COLORS.textSecondary,
+    fontWeight: "500",
+  },
+  guideFamousName: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: "700",
   },
 });
